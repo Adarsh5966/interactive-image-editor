@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interactive Image Cropping</title>
+  <style>
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background-color: #f0f0f0;
+      margin: 0;
+    }
+    .image-container {
+      position: relative;
+      width: 400px;
+      height: 400px;
+      border-radius: 50%;
+      overflow: hidden;
+      background-color: #fff;
+    }
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+    #file-input {
+      display: none;
+    }
+    .download-btn {
+      position: absolute;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: #4CAF50;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+      display: none;
+    }
+    .download-btn:hover {
+      background-color: #45a049;
+    }
+    #upload-prompt {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 16px;
+      font-weight: bold;
+      color: #555;
+      text-align: center;
+      cursor: pointer;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <div class="image-container">
+    <canvas id="canvas"></canvas>
+    <div id="upload-prompt">Click here to upload your image</div>
+    <input type="file" id="file-input" accept="image/*">
+    <a id="download-link" class="download-btn" download="composite-image.jpg">Download</a>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const fileInput = document.getElementById('file-input');
+    const uploadPrompt = document.getElementById('upload-prompt');
+    const downloadLink = document.getElementById('download-link');
+
+    canvas.width = 400;
+    canvas.height = 400;
+
+    const backgroundImg = new Image();
+    backgroundImg.src = '../image/upload.jpeg'; // Ensure this path is correct and accessible
+    let uploadedImage = new Image();
+    let scale = 1;
+    let offsetX = 0;
+    let offsetY = 0;
+    let isDragging = false;
+    let lastX = 0;
+    let lastY = 0;
+
+    // Draw the canvas when the background image loads
+    backgroundImg.onload = () => drawCanvas();
+
+    uploadPrompt.addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', (event) => {
+      const file = event.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          uploadedImage.src = e.target.result;
+          uploadedImage.onload = () => {
+            scale = 1;
+            offsetX = 0;
+            offsetY = 0;
+            uploadPrompt.style.display = 'none';
+            downloadLink.style.display = 'inline-block';
+            drawCanvas();
+          };
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    canvas.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      lastX = e.offsetX;
+      lastY = e.offsetY;
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      if (isDragging) {
+        offsetX += e.offsetX - lastX;
+        offsetY += e.offsetY - lastY;
+        lastX = e.offsetX;
+        lastY = e.offsetY;
+        drawCanvas();
+      }
+    });
+
+    canvas.addEventListener('mouseup', () => isDragging = false);
+    canvas.addEventListener('mouseleave', () => isDragging = false);
+
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+      scale *= zoomFactor;
+      drawCanvas();
+    });
+
+    function drawCanvas() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Draw the background image
+      ctx.drawImage(backgroundImg, 0, 0, canvas.width, canvas.height);
+
+      // Add a semi-transparent overlay at the center when the prompt is visible
+      if (uploadPrompt.style.display !== 'none') {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.beginPath();
+        ctx.arc(canvas.width / 2, canvas.height / 2, 100, 0, Math.PI * 2);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // Draw the uploaded image with transformations
+      if (uploadedImage.src) {
+        const imgWidth = uploadedImage.width * scale;
+        const imgHeight = uploadedImage.height * scale;
+        const imgX = canvas.width / 2 - imgWidth / 2 + offsetX;
+        const imgY = canvas.height / 2 - imgHeight / 2 + offsetY;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(canvas.width / 2, canvas.height / 2, 100, 0, Math.PI * 2);
+        ctx.closePath();
+        ctx.clip();
+
+        ctx.drawImage(uploadedImage, imgX, imgY, imgWidth, imgHeight);
+        ctx.restore();
+      }
+
+      // Update the download link with the composite image
+      downloadLink.href = canvas.toDataURL('image/jpeg');
+    }
+  </script>
+</body>
+</html>
